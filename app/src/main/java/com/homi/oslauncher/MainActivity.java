@@ -529,7 +529,8 @@ public class MainActivity extends Activity {
             int count = 0;
 
             for (AppItem app : allApps) {
-                if (!app.label.toLowerCase(Locale.ROOT).contains(query)) {
+                if (!app.label.toLowerCase(Locale.ROOT).contains(query)
+                        && !app.packageName.toLowerCase(Locale.ROOT).contains(query)) {
                     continue;
                 }
 
@@ -690,6 +691,7 @@ public class MainActivity extends Activity {
                 "تغيير حجم الساعة",
                 "اختيار صورة من الهاتف",
                 "تبديل الوضع الفاتح/الداكن",
+                "إزالة صورة الخلفية",
                 "طريقة تثبيت التطبيقات في الشريط",
                 "إعادة تحميل التطبيقات"
         };
@@ -706,6 +708,15 @@ public class MainActivity extends Activity {
                     } else if (which == 3) {
                         toggleBackground();
                     } else if (which == 4) {
+                        if (wallpaperUri == null) {
+                            Toast.makeText(this, "لا توجد صورة خلفية مخصصة", Toast.LENGTH_SHORT).show();
+                        } else {
+                            prefs.edit().remove("wallpaper_uri").remove("custom_accent").apply();
+                            loadSettings();
+                            showHome();
+                            Toast.makeText(this, "تمت إزالة الخلفية المخصصة", Toast.LENGTH_SHORT).show();
+                        }
+                    } else if (which == 5) {
                         new AlertDialog.Builder(this)
                                 .setTitle("تخصيص الشريط السفلي")
                                 .setMessage("اضغط مطولاً على أي تطبيق في الرئيسية أو مكتبة التطبيقات لإضافته إلى الشريط السفلي أو إزالته. تُحفظ اختياراتك تلقائياً.")
