@@ -256,6 +256,22 @@ public class MainActivity extends Activity {
         ));
 
         root.addView(page, new FrameLayout.LayoutParams(-1, -1));
+        root.setOnApplyWindowInsetsListener((view, insets) -> {
+            int topInset = insets.getSystemWindowInsetTop();
+            int bottomInset = insets.getSystemWindowInsetBottom();
+            page.setPadding(dp(18), dp(14) + topInset,
+                    dp(18), dp(18) + bottomInset);
+            if (root.getChildCount() > 2) {
+                View dock = root.getChildAt(2);
+                if (dock.getLayoutParams() instanceof FrameLayout.LayoutParams) {
+                    FrameLayout.LayoutParams dockParams =
+                            (FrameLayout.LayoutParams) dock.getLayoutParams();
+                    dockParams.bottomMargin = dp(12) + bottomInset;
+                    dock.setLayoutParams(dockParams);
+                }
+            }
+            return insets;
+        });
         setContentView(root);
     }
 
@@ -550,6 +566,7 @@ public class MainActivity extends Activity {
             @Override
             public void onTextChanged(
                     CharSequence s, int start, int before, int count) {
+                currentQuery = s.toString();
                 updateResults.run();
             }
 
@@ -935,10 +952,16 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
 
-        // تحديث قائمة التطبيقات عند الرجوع إلى المشغّل.
+        // Refresh the visible grid only when installed apps actually changed.
+        Set<String> before = new HashSet<>();
+        for (AppItem app : allApps) before.add(app.packageName);
         loadApps();
+        Set<String> after = new HashSet<>();
+        for (AppItem app : allApps) after.add(app.packageName);
 
-        if (!showingApps) {
+        if (!before.equals(after)) {
+            if (showingApps) showApps(); else showHome();
+        } else if (!showingApps) {
             handler.removeCallbacks(clockRunnable);
             handler.post(clockRunnable);
         }
