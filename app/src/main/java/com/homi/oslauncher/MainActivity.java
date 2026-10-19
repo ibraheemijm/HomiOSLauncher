@@ -360,7 +360,7 @@ public class MainActivity extends Activity {
         GridLayout results = new GridLayout(this);
         results.setColumnCount(5);
         results.setUseDefaultMargins(false);
-        content.addView(results);
+        content.addView(results, new LinearLayout.LayoutParams(-1, -2));
 
         Runnable updateResults = () -> {
             results.removeAllViews();
