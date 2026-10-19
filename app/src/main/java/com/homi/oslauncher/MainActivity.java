@@ -980,3 +980,4 @@ public class MainActivity extends Activity {
         String activityName;
         android.graphics.drawable.Drawable icon;
     }
+}
