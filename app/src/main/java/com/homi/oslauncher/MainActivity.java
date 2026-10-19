@@ -677,7 +677,9 @@ public class MainActivity extends Activity {
         }
         if (wallpaperView != null) {
             wallpaperView.setImageDrawable(null);
-            wallpaperView.setRenderEffect(null);
+            if (android.os.Build.VERSION.SDK_INT >= 31) {
+                wallpaperView.setRenderEffect(null);
+            }
             wallpaperView.setVisibility(View.GONE);
         }
         if (page != null) page.setBackgroundColor(Color.TRANSPARENT);
