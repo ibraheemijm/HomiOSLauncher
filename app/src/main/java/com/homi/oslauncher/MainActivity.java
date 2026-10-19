@@ -546,8 +546,12 @@ public class MainActivity extends Activity {
                                 .setPositiveButton("حفظ", (d, w) -> {
                                     String name = input.getText().toString().trim();
                                     if (name.isEmpty()) name = "مجلد";
-                                    folder.put("name", name);
-                                    persistFolderUpdate(folder);
+                                    try {
+                                        folder.put("name", name);
+                                        persistFolderUpdate(folder);
+                                    } catch (Exception e) {
+                                        Toast.makeText(this, "تعذر إعادة تسمية المجلد", Toast.LENGTH_SHORT).show();
+                                    }
                                 }).show();
                     } else if (which == 1) {
                         showEditFolderApps(folder);
