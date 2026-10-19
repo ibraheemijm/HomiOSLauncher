@@ -309,11 +309,6 @@ public class MainActivity extends Activity {
         }
         content.addView(homeGrid, new LinearLayout.LayoutParams(-1, -2));
 
-        addSpace(content, 8);
-        TextView pageDots = text("●  ○  ○", 11, secondaryTextColor(), false);
-        pageDots.setGravity(Gravity.CENTER);
-        content.addView(pageDots);
-
         addSpace(content, 12);
         TextView library = text("⌕   مكتبة التطبيقات", 14, textColor(), true);
         library.setGravity(Gravity.CENTER);
