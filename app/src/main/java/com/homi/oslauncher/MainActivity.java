@@ -8,6 +8,11 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.graphics.Color;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.drawable.BitmapDrawable;
+import android.widget.FrameLayout;
+import android.net.Uri;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
@@ -43,6 +48,7 @@ public class MainActivity extends Activity {
     private TextView dateView;
     private EditText appSearch;
     private ScrollView scrollView;
+    private ImageView wallpaperView;
 
     private SharedPreferences prefs;
     private boolean showingApps = false;
@@ -52,6 +58,8 @@ public class MainActivity extends Activity {
     private int background;
     private int cardColor;
     private int clockSize;
+    private Uri wallpaperUri;
+    private static final int REQUEST_WALLPAPER = 4201;
 
     private final int[] accents = {
             Color.rgb(0, 220, 255),
@@ -101,7 +109,9 @@ public class MainActivity extends Activity {
     private void loadSettings() {
         int accentIndex = prefs.getInt("accent", 0);
         accentIndex = Math.max(0, Math.min(accentIndex, accents.length - 1));
-        accent = accents[accentIndex];
+        accent = prefs.getInt("custom_accent", accents[accentIndex]);
+        String savedWallpaper = prefs.getString("wallpaper_uri", null);
+        wallpaperUri = savedWallpaper == null ? null : Uri.parse(savedWallpaper);
 
         clockSize = prefs.getInt("clock_size", 58);
 
@@ -122,7 +132,11 @@ public class MainActivity extends Activity {
 
     private GradientDrawable rounded(int color, int radius) {
         GradientDrawable drawable = new GradientDrawable();
-        drawable.setColor(color);
+        int surfaceColor = color;
+        if (wallpaperUri != null && color == cardColor) {
+            surfaceColor = Color.argb(190, Color.red(color), Color.green(color), Color.blue(color));
+        }
+        drawable.setColor(surfaceColor);
         drawable.setCornerRadius(dp(radius));
         return drawable;
     }
@@ -204,9 +218,17 @@ public class MainActivity extends Activity {
     }
 
     private void createBase(String title) {
+        FrameLayout root = new FrameLayout(this);
+        root.setBackgroundColor(background);
+
+        wallpaperView = new ImageView(this);
+        wallpaperView.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        root.addView(wallpaperView, new FrameLayout.LayoutParams(-1, -1));
+
         page = vertical();
         page.setPadding(dp(18), dp(14), dp(18), dp(18));
-        page.setBackgroundColor(background);
+        page.setBackgroundColor(Color.TRANSPARENT);
+        applyPageBackground();
 
         TextView heading = text(title, 22, accent, true);
         heading.setPadding(0, dp(8), 0, dp(16));
@@ -222,7 +244,8 @@ public class MainActivity extends Activity {
                 -1, 0, 1
         ));
 
-        setContentView(page);
+        root.addView(page, new FrameLayout.LayoutParams(-1, -1));
+        setContentView(root);
     }
 
     private void showHome() {
@@ -345,8 +368,10 @@ public class MainActivity extends Activity {
         searchBox.addView(appSearch);
         content.addView(searchBox);
 
-        LinearLayout results = vertical();
-        content.addView(results);
+        GridLayout results = new GridLayout(this);
+        results.setColumnCount(5);
+        results.setUseDefaultMargins(false);
+        content.addView(results, new LinearLayout.LayoutParams(-1, -2));
 
         Runnable updateResults = () -> {
             results.removeAllViews();
@@ -361,7 +386,11 @@ public class MainActivity extends Activity {
                     continue;
                 }
 
-                results.addView(createAppRow(app));
+                GridLayout.LayoutParams tileParams = new GridLayout.LayoutParams();
+                tileParams.width = 0;
+                tileParams.columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f);
+                tileParams.setMargins(dp(1), dp(3), dp(1), dp(3));
+                results.addView(createAppTile(app, false), tileParams);
                 count++;
             }
 
@@ -374,7 +403,10 @@ public class MainActivity extends Activity {
                 );
                 empty.setGravity(Gravity.CENTER);
                 empty.setPadding(0, dp(28), 0, dp(28));
-                results.addView(empty);
+                GridLayout.LayoutParams emptyParams = new GridLayout.LayoutParams();
+                emptyParams.width = -1;
+                emptyParams.columnSpec = GridLayout.spec(0, 5);
+                results.addView(empty, emptyParams);
             }
         };
 
@@ -499,7 +531,8 @@ public class MainActivity extends Activity {
         String[] options = {
                 "تغيير اللون الرئيسي",
                 "تغيير حجم الساعة",
-                "تغيير خلفية الواجهة",
+                "اختيار صورة من الهاتف",
+                "تبديل الوضع الفاتح/الداكن",
                 "إعادة تحميل التطبيقات"
         };
 
@@ -511,6 +544,8 @@ public class MainActivity extends Activity {
                     } else if (which == 1) {
                         chooseClockSize();
                     } else if (which == 2) {
+                        chooseWallpaper();
+                    } else if (which == 3) {
                         toggleBackground();
                     } else {
                         loadApps();
@@ -535,7 +570,7 @@ public class MainActivity extends Activity {
                         accentNames,
                         selected,
                         (dialog, which) -> {
-                            prefs.edit().putInt("accent", which).apply();
+                            prefs.edit().putInt("accent", which).remove("custom_accent").apply();
                             loadSettings();
                             dialog.dismiss();
                             showHome();
@@ -578,6 +613,129 @@ public class MainActivity extends Activity {
                 )
                 .setNegativeButton("إلغاء", null)
                 .show();
+    }
+
+    private void chooseWallpaper() {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("image/*");
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
+                | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+        try {
+            startActivityForResult(intent, REQUEST_WALLPAPER);
+        } catch (Exception e) {
+            Toast.makeText(this, "تعذر فتح معرض الصور", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != REQUEST_WALLPAPER || resultCode != RESULT_OK
+                || data == null || data.getData() == null) return;
+
+        Uri selected = data.getData();
+        try {
+            getContentResolver().takePersistableUriPermission(
+                    selected, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        } catch (Exception ignored) {
+            // The provider may not support persistent URI permissions.
+        }
+
+        wallpaperUri = selected;
+        prefs.edit().putString("wallpaper_uri", selected.toString()).apply();
+        int sampledColor = sampleAccentColor(selected);
+        if (sampledColor != Color.TRANSPARENT) {
+            prefs.edit().putInt("custom_accent", sampledColor).apply();
+        }
+        loadSettings();
+        if (showingApps) showApps(); else showHome();
+        Toast.makeText(this, "تم تحديث الخلفية واللون الرئيسي", Toast.LENGTH_SHORT).show();
+    }
+
+    private void applyPageBackground() {
+        if (wallpaperView != null && wallpaperUri != null) {
+            try {
+                BitmapFactory.Options options = new BitmapFactory.Options();
+                options.inSampleSize = 4;
+                Bitmap bitmap = BitmapFactory.decodeStream(
+                        getContentResolver().openInputStream(wallpaperUri), null, options);
+                if (bitmap != null) {
+                    wallpaperView.setImageDrawable(new BitmapDrawable(getResources(), bitmap));
+                    wallpaperView.setVisibility(View.VISIBLE);
+                    if (android.os.Build.VERSION.SDK_INT >= 31) {
+                        wallpaperView.setRenderEffect(
+                                android.graphics.RenderEffect.createBlurEffect(
+                                        dp(10), dp(10),
+                                        android.graphics.Shader.TileMode.CLAMP));
+                    }
+                    return;
+                }
+            } catch (Exception ignored) {
+                // Fall back to the selected solid background.
+            }
+        }
+        if (wallpaperView != null) {
+            wallpaperView.setImageDrawable(null);
+            wallpaperView.setRenderEffect(null);
+            wallpaperView.setVisibility(View.GONE);
+        }
+        if (page != null) page.setBackgroundColor(Color.TRANSPARENT);
+    }
+
+    private int sampleAccentColor(Uri uri) {
+        Bitmap bitmap = null;
+        try {
+            BitmapFactory.Options options = new BitmapFactory.Options();
+            options.inSampleSize = 8;
+            bitmap = BitmapFactory.decodeStream(
+                    getContentResolver().openInputStream(uri), null, options);
+            if (bitmap == null) return Color.TRANSPARENT;
+
+            int[] bins = new int[4096];
+            long[] red = new long[4096];
+            long[] green = new long[4096];
+            long[] blue = new long[4096];
+            int stepX = Math.max(1, bitmap.getWidth() / 48);
+            int stepY = Math.max(1, bitmap.getHeight() / 48);
+
+            for (int y = 0; y < bitmap.getHeight(); y += stepY) {
+                for (int x = 0; x < bitmap.getWidth(); x += stepX) {
+                    int pixel = bitmap.getPixel(x, y);
+                    if (Color.alpha(pixel) < 100) continue;
+                    int r = Color.red(pixel), g = Color.green(pixel), b = Color.blue(pixel);
+                    int bucket = ((r >> 4) << 8) | ((g >> 4) << 4) | (b >> 4);
+                    bins[bucket]++;
+                    red[bucket] += r;
+                    green[bucket] += g;
+                    blue[bucket] += b;
+                }
+            }
+
+            int best = -1;
+            int bestScore = -1;
+            for (int i = 0; i < bins.length; i++) {
+                if (bins[i] == 0) continue;
+                int avgR = (int)(red[i] / bins[i]);
+                int avgG = (int)(green[i] / bins[i]);
+                int avgB = (int)(blue[i] / bins[i]);
+                int saturation = Math.max(avgR, Math.max(avgG, avgB))
+                        - Math.min(avgR, Math.min(avgG, avgB));
+                int score = bins[i] * (saturation + 24);
+                if (score > bestScore) {
+                    bestScore = score;
+                    best = i;
+                }
+            }
+            if (best < 0) return Color.TRANSPARENT;
+            return Color.rgb((int)(red[best] / bins[best]),
+                    (int)(green[best] / bins[best]),
+                    (int)(blue[best] / bins[best]));
+        } catch (Exception e) {
+            return Color.TRANSPARENT;
+        } finally {
+            if (bitmap != null && !bitmap.isRecycled()) bitmap.recycle();
+        }
     }
 
     private void toggleBackground() {

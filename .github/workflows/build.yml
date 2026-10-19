@@ -3,9 +3,11 @@ name: Build Homi OS Launcher APK
 
 on:
   workflow_dispatch:
+  pull_request:
   push:
     branches:
       - main
+      - feature/homi-glass-launcher
 
 permissions:
   contents: read
