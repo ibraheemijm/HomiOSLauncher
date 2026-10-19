@@ -4,6 +4,8 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.Intent;
+import android.content.ClipData;
+import android.view.DragEvent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
@@ -37,6 +39,8 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 import java.util.HashSet;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
 import java.util.Locale;
 import org.json.JSONArray;
@@ -226,6 +230,41 @@ public class MainActivity extends Activity {
                 return a.label.compareToIgnoreCase(b.label);
             }
         });
+        applySavedAppOrder();
+    }
+
+    private void applySavedAppOrder() {
+        String saved = prefs.getString("app_order", "");
+        if (saved.isEmpty()) return;
+        String[] packages = saved.split("\\|");
+        Map<String, Integer> order = new HashMap<>();
+        for (int i = 0; i < packages.length; i++) order.put(packages[i], i);
+        Collections.sort(allApps, (a, b) -> {
+            int ai = order.containsKey(a.packageName) ? order.get(a.packageName) : Integer.MAX_VALUE;
+            int bi = order.containsKey(b.packageName) ? order.get(b.packageName) : Integer.MAX_VALUE;
+            if (ai != bi) return Integer.compare(ai, bi);
+            return a.label.compareToIgnoreCase(b.label);
+        });
+    }
+
+    private void saveAppOrder() {
+        StringBuilder saved = new StringBuilder();
+        for (AppItem app : allApps) {
+            if (saved.length() > 0) saved.append('|');
+            saved.append(app.packageName);
+        }
+        prefs.edit().putString("app_order", saved.toString()).apply();
+    }
+
+    private void moveAppTo(AppItem dragged, AppItem target) {
+        int from = allApps.indexOf(dragged);
+        int to = allApps.indexOf(target);
+        if (from < 0 || to < 0 || from == to) return;
+        AppItem moving = allApps.remove(from);
+        allApps.add(to, moving);
+        saveAppOrder();
+        showHome();
+        Toast.makeText(this, "تم حفظ ترتيب التطبيقات", Toast.LENGTH_SHORT).show();
     }
 
     private void createBase(String title) {
@@ -835,11 +874,43 @@ public class MainActivity extends Activity {
         ));
 
         tile.setOnClickListener(v -> launchApp(app));
-        tile.setOnLongClickListener(v -> {
-            toggleFavorite(app);
-            return true;
-        });
-        tile.setContentDescription(app.label + "؛ اضغط مطولاً لإضافة أو إزالة من الشريط السفلي");
+        if (compact) {
+            tile.setOnLongClickListener(v -> {
+                ClipData dragData = ClipData.newPlainText("package", app.packageName);
+                View.DragShadowBuilder shadow = new View.DragShadowBuilder(v);
+                if (android.os.Build.VERSION.SDK_INT >= 24) {
+                    v.startDragAndDrop(dragData, shadow, app, 0);
+                } else {
+                    v.startDrag(dragData, shadow, app, 0);
+                }
+                return true;
+            });
+            tile.setOnDragListener((target, event) -> {
+                switch (event.getAction()) {
+                    case DragEvent.ACTION_DRAG_STARTED:
+                    case DragEvent.ACTION_DRAG_ENTERED:
+                    case DragEvent.ACTION_DRAG_EXITED:
+                    case DragEvent.ACTION_DRAG_LOCATION:
+                        return true;
+                    case DragEvent.ACTION_DROP:
+                        Object local = event.getLocalState();
+                        if (local instanceof AppItem) moveAppTo((AppItem) local, app);
+                        return true;
+                    case DragEvent.ACTION_DRAG_ENDED:
+                        target.setAlpha(1f);
+                        return true;
+                    default:
+                        return false;
+                }
+            });
+            tile.setContentDescription(app.label + "؛ اضغط مطولاً واسحب لإعادة الترتيب");
+        } else {
+            tile.setOnLongClickListener(v -> {
+                toggleFavorite(app);
+                return true;
+            });
+            tile.setContentDescription(app.label + "؛ اضغط مطولاً لإضافته إلى الشريط السفلي أو إزالته");
+        }
 
         return tile;
     }
