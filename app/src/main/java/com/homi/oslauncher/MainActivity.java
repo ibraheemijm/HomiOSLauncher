@@ -420,6 +420,7 @@ public class MainActivity extends Activity {
                 {"chrome", "browser", "متصفح", "المتصفح"}
         };
         for (String[] terms : priorities) {
+            if (selected.size() >= 4) break;
             for (AppItem app : allApps) {
                 if (selected.contains(app)) continue;
                 String label = app.label.toLowerCase(Locale.ROOT);
@@ -672,6 +673,7 @@ public class MainActivity extends Activity {
                 "تغيير حجم الساعة",
                 "اختيار صورة من الهاتف",
                 "تبديل الوضع الفاتح/الداكن",
+                "طريقة تثبيت التطبيقات في الشريط",
                 "إعادة تحميل التطبيقات"
         };
 
@@ -686,6 +688,12 @@ public class MainActivity extends Activity {
                         chooseWallpaper();
                     } else if (which == 3) {
                         toggleBackground();
+                    } else if (which == 4) {
+                        new AlertDialog.Builder(this)
+                                .setTitle("تخصيص الشريط السفلي")
+                                .setMessage("اضغط مطولاً على أي تطبيق في الرئيسية أو مكتبة التطبيقات لإضافته إلى الشريط السفلي أو إزالته. تُحفظ اختياراتك تلقائياً.")
+                                .setPositiveButton("حسناً", null)
+                                .show();
                     } else {
                         loadApps();
                         showHome();
