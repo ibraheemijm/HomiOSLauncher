@@ -49,6 +49,7 @@ public class MainActivity extends Activity {
     private EditText appSearch;
     private ScrollView scrollView;
     private ImageView wallpaperView;
+    private FrameLayout rootLayout;
 
     private SharedPreferences prefs;
     private boolean showingApps = false;
@@ -134,10 +135,13 @@ public class MainActivity extends Activity {
         GradientDrawable drawable = new GradientDrawable();
         int surfaceColor = color;
         if (wallpaperUri != null && color == cardColor) {
-            surfaceColor = Color.argb(190, Color.red(color), Color.green(color), Color.blue(color));
+            surfaceColor = Color.argb(166, Color.red(color), Color.green(color), Color.blue(color));
         }
         drawable.setColor(surfaceColor);
         drawable.setCornerRadius(dp(radius));
+        if (wallpaperUri != null) {
+            drawable.setStroke(dp(1), Color.argb(54, 255, 255, 255));
+        }
         return drawable;
     }
 
@@ -219,6 +223,7 @@ public class MainActivity extends Activity {
 
     private void createBase(String title) {
         FrameLayout root = new FrameLayout(this);
+        rootLayout = root;
         root.setBackgroundColor(background);
 
         wallpaperView = new ImageView(this);
@@ -230,9 +235,11 @@ public class MainActivity extends Activity {
         page.setBackgroundColor(Color.TRANSPARENT);
         applyPageBackground();
 
-        TextView heading = text(title, 22, accent, true);
-        heading.setPadding(0, dp(8), 0, dp(16));
-        page.addView(heading);
+        if (title != null && !title.isEmpty()) {
+            TextView heading = text(title, 22, accent, true);
+            heading.setPadding(0, dp(8), 0, dp(16));
+            page.addView(heading);
+        }
 
         scrollView = new ScrollView(this);
         scrollView.setFillViewport(true);
@@ -251,100 +258,143 @@ public class MainActivity extends Activity {
     private void showHome() {
         showingApps = false;
         currentQuery = "";
-        createBase("HOMI OS");
+        createBase("");
 
-        LinearLayout hero = vertical();
-        hero.setPadding(dp(18), dp(20), dp(18), dp(22));
-        hero.setBackground(rounded(cardColor, 24));
+        // iOS-inspired home screen: compact header, clock widget, four-column icons and a fixed glass dock.
+        LinearLayout topBar = horizontal();
+        topBar.setGravity(Gravity.CENTER_VERTICAL);
+        TextView brand = text("HOMI", 17, textColor(), true);
+        brand.setLetterSpacing(0.16f);
+        topBar.addView(brand, new LinearLayout.LayoutParams(0, -2, 1));
+        TextView settings = text("⚙", 22, textColor(), true);
+        settings.setGravity(Gravity.CENTER);
+        settings.setBackground(rounded(cardColor, 24));
+        settings.setPadding(dp(12), dp(7), dp(12), dp(7));
+        settings.setOnClickListener(v -> showSettings());
+        topBar.addView(settings);
+        content.addView(topBar);
 
-        TextView brand = text("H O M I", 14, accent, true);
-        brand.setGravity(Gravity.CENTER);
-        hero.addView(brand);
+        addSpace(content, 16);
 
-        clockView = text("--:--", clockSize, textColor(), true);
+        LinearLayout widget = vertical();
+        widget.setPadding(dp(18), dp(15), dp(18), dp(17));
+        widget.setBackground(rounded(cardColor, 25));
+        TextView date = text(new SimpleDateFormat("EEEE، d MMMM", new Locale("ar"))
+                .format(new Date()), 14, secondaryTextColor(), true);
+        date.setGravity(Gravity.CENTER);
+        widget.addView(date);
+
+        clockView = text("--:--", Math.min(clockSize + 8, 78), textColor(), true);
         clockView.setGravity(Gravity.CENTER);
-        clockView.setPadding(0, dp(8), 0, dp(4));
-        hero.addView(clockView);
+        clockView.setPadding(0, dp(2), 0, dp(1));
+        widget.addView(clockView);
 
-        dateView = text("", 15, secondaryTextColor(), false);
-        dateView.setGravity(Gravity.CENTER);
-        hero.addView(dateView);
+        TextView subtitle = text("مساحتك. بطريقتك.", 12, accent, false);
+        subtitle.setGravity(Gravity.CENTER);
+        widget.addView(subtitle);
+        content.addView(widget);
 
-        TextView status = text("واجهة ذكية • مساحة شخصية", 12, accent, false);
-        status.setGravity(Gravity.CENTER);
-        status.setPadding(0, dp(12), 0, 0);
-        hero.addView(status);
+        addSpace(content, 20);
 
-        content.addView(hero);
-
-        addSpace(content, 18);
-
-        TextView quickTitle = text("تطبيقاتك", 18, textColor(), true);
-        content.addView(quickTitle);
-
-        addSpace(content, 10);
-
-        GridLayout quickGrid = new GridLayout(this);
-        quickGrid.setColumnCount(4);
-        quickGrid.setUseDefaultMargins(false);
-
-        int quickCount = Math.min(4, allApps.size());
-
-        for (int i = 0; i < quickCount; i++) {
-            AppItem app = allApps.get(i);
-            quickGrid.addView(createAppTile(app, true),
-                    new GridLayout.LayoutParams());
+        GridLayout homeGrid = new GridLayout(this);
+        homeGrid.setColumnCount(4);
+        homeGrid.setUseDefaultMargins(false);
+        int homeCount = Math.min(16, allApps.size());
+        for (int i = 0; i < homeCount; i++) {
+            GridLayout.LayoutParams tileParams = new GridLayout.LayoutParams();
+            tileParams.width = 0;
+            tileParams.columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f);
+            tileParams.setMargins(dp(2), dp(4), dp(2), dp(4));
+            homeGrid.addView(createAppTile(allApps.get(i), true), tileParams);
         }
+        content.addView(homeGrid, new LinearLayout.LayoutParams(-1, -2));
 
-        content.addView(quickGrid);
-
-        addSpace(content, 18);
-
-        EditText homeSearch = new EditText(this);
-        homeSearch.setSingleLine(true);
-        homeSearch.setTextSize(15);
-        homeSearch.setTextColor(textColor());
-        homeSearch.setHintTextColor(secondaryTextColor());
-        homeSearch.setHint("ابحث عن تطبيق...");
-        homeSearch.setPadding(dp(16), dp(12), dp(16), dp(12));
-        homeSearch.setBackground(rounded(cardColor, 16));
-        homeSearch.setImeOptions(EditorInfo.IME_ACTION_SEARCH);
-
-        homeSearch.setOnEditorActionListener((v, actionId, event) -> {
-            if (actionId == EditorInfo.IME_ACTION_SEARCH) {
-                currentQuery = homeSearch.getText().toString();
-                showApps();
-                return true;
-            }
-            return false;
-        });
-
-        content.addView(homeSearch);
+        addSpace(content, 8);
+        TextView pageDots = text("●  ○  ○", 11, secondaryTextColor(), false);
+        pageDots.setGravity(Gravity.CENTER);
+        content.addView(pageDots);
 
         addSpace(content, 12);
-
-        content.addView(button("▦   جميع التطبيقات", () -> {
+        TextView library = text("⌕   مكتبة التطبيقات", 14, textColor(), true);
+        library.setGravity(Gravity.CENTER);
+        library.setPadding(dp(16), dp(12), dp(16), dp(12));
+        library.setBackground(rounded(cardColor, 20));
+        library.setOnClickListener(v -> {
             currentQuery = "";
             showApps();
-        }));
+        });
+        content.addView(library);
 
-        addSpace(content, 10);
-
-        content.addView(button("⚙   تخصيص الواجهة", this::showSettings));
-
-        addSpace(content, 18);
-
-        TextView footer = text(
-                "HOMI OS  •  إصدار تجريبي",
-                12,
-                secondaryTextColor(),
-                false
-        );
-        footer.setGravity(Gravity.CENTER);
-        content.addView(footer);
+        // Keep the dock visible while the home screen content scrolls.
+        scrollView.setClipToPadding(false);
+        scrollView.setPadding(0, 0, 0, dp(112));
+        addGlassDock();
 
         handler.removeCallbacks(clockRunnable);
         handler.post(clockRunnable);
+    }
+
+    private void addGlassDock() {
+        if (rootLayout == null || allApps.isEmpty()) return;
+        LinearLayout dock = horizontal();
+        dock.setGravity(Gravity.CENTER);
+        dock.setPadding(dp(8), dp(9), dp(8), dp(9));
+        dock.setBackground(rounded(cardColor, 30));
+        dock.setElevation(dp(12));
+
+        List<AppItem> dockApps = chooseDockApps();
+        for (AppItem app : dockApps) {
+            LinearLayout slot = vertical();
+            slot.setGravity(Gravity.CENTER);
+            slot.setPadding(dp(3), dp(1), dp(3), dp(1));
+            ImageView icon = new ImageView(this);
+            icon.setImageDrawable(app.icon);
+            icon.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            slot.addView(icon, new LinearLayout.LayoutParams(dp(46), dp(46)));
+            slot.setContentDescription(app.label);
+            slot.setClickable(true);
+            slot.setFocusable(true);
+            slot.setOnClickListener(v -> launchApp(app));
+            dock.addView(slot, new LinearLayout.LayoutParams(0, -2, 1));
+        }
+
+        FrameLayout.LayoutParams dockParams = new FrameLayout.LayoutParams(
+                -1, -2, Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
+        dockParams.setMargins(dp(14), 0, dp(14), dp(12));
+        rootLayout.addView(dock, dockParams);
+    }
+
+    private List<AppItem> chooseDockApps() {
+        List<AppItem> selected = new ArrayList<>();
+        String[][] priorities = {
+                {"phone", "الهاتف", "dialer", "اتصال"},
+                {"message", "الرسائل", "sms", "messaging"},
+                {"camera", "الكاميرا", "كاميرا"},
+                {"chrome", "browser", "متصفح", "المتصفح"}
+        };
+        for (String[] terms : priorities) {
+            for (AppItem app : allApps) {
+                if (selected.contains(app)) continue;
+                String label = app.label.toLowerCase(Locale.ROOT);
+                String pkg = app.packageName.toLowerCase(Locale.ROOT);
+                boolean match = false;
+                for (String term : terms) {
+                    if (label.contains(term) || pkg.contains(term)) {
+                        match = true;
+                        break;
+                    }
+                }
+                if (match) {
+                    selected.add(app);
+                    break;
+                }
+            }
+        }
+        for (AppItem app : allApps) {
+            if (selected.size() >= 4) break;
+            if (!selected.contains(app)) selected.add(app);
+        }
+        return selected;
     }
 
     private void showApps() {
@@ -445,15 +495,16 @@ public class MainActivity extends Activity {
         ImageView icon = new ImageView(this);
         icon.setImageDrawable(app.icon);
 
-        int iconSize = compact ? 48 : 56;
+        int iconSize = compact ? 52 : 56;
         LinearLayout.LayoutParams iconParams =
                 new LinearLayout.LayoutParams(dp(iconSize), dp(iconSize));
         iconParams.gravity = Gravity.CENTER;
         tile.addView(icon, iconParams);
 
-        TextView label = text(app.label, 11, textColor(), false);
+        TextView label = text(app.label, 11, Color.WHITE, false);
         label.setGravity(Gravity.CENTER);
         label.setMaxLines(2);
+        label.setShadowLayer(dp(2), 0, dp(1), Color.argb(170, 0, 0, 0));
         label.setPadding(0, dp(6), 0, 0);
 
         tile.addView(label, new LinearLayout.LayoutParams(
