@@ -501,10 +501,13 @@ public class MainActivity extends Activity {
         iconParams.gravity = Gravity.CENTER;
         tile.addView(icon, iconParams);
 
-        TextView label = text(app.label, 11, Color.WHITE, false);
+        int labelColor = wallpaperUri != null ? Color.WHITE : textColor();
+        TextView label = text(app.label, 11, labelColor, false);
         label.setGravity(Gravity.CENTER);
         label.setMaxLines(2);
-        label.setShadowLayer(dp(2), 0, dp(1), Color.argb(170, 0, 0, 0));
+        if (wallpaperUri != null) {
+            label.setShadowLayer(dp(2), 0, dp(1), Color.argb(170, 0, 0, 0));
+        }
         label.setPadding(0, dp(6), 0, 0);
 
         tile.addView(label, new LinearLayout.LayoutParams(
