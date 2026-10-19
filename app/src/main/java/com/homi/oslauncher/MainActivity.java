@@ -63,6 +63,7 @@ public class MainActivity extends Activity {
     private int cardColor;
     private int clockSize;
     private Uri wallpaperUri;
+    private int systemBottomInset = 0;
     private static final int REQUEST_WALLPAPER = 4201;
     private static final String FAVORITES_KEY = "favorite_apps";
 
@@ -259,6 +260,7 @@ public class MainActivity extends Activity {
         root.setOnApplyWindowInsetsListener((view, insets) -> {
             int topInset = insets.getSystemWindowInsetTop();
             int bottomInset = insets.getSystemWindowInsetBottom();
+            systemBottomInset = bottomInset;
             page.setPadding(dp(18), dp(14) + topInset,
                     dp(18), dp(18) + bottomInset);
             if (root.getChildCount() > 2) {
@@ -417,7 +419,7 @@ public class MainActivity extends Activity {
 
         FrameLayout.LayoutParams dockParams = new FrameLayout.LayoutParams(
                 -1, -2, Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
-        dockParams.setMargins(dp(14), 0, dp(14), dp(12));
+        dockParams.setMargins(dp(14), 0, dp(14), dp(12) + systemBottomInset);
         rootLayout.addView(dock, dockParams);
     }
 
