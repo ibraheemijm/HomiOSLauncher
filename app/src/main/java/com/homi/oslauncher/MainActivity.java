@@ -11,6 +11,7 @@ import android.graphics.Color;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.drawable.BitmapDrawable;
+import android.widget.FrameLayout;
 import android.net.Uri;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
@@ -47,6 +48,7 @@ public class MainActivity extends Activity {
     private TextView dateView;
     private EditText appSearch;
     private ScrollView scrollView;
+    private ImageView wallpaperView;
 
     private SharedPreferences prefs;
     private boolean showingApps = false;
@@ -216,8 +218,16 @@ public class MainActivity extends Activity {
     }
 
     private void createBase(String title) {
+        FrameLayout root = new FrameLayout(this);
+        root.setBackgroundColor(background);
+
+        wallpaperView = new ImageView(this);
+        wallpaperView.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        root.addView(wallpaperView, new FrameLayout.LayoutParams(-1, -1));
+
         page = vertical();
         page.setPadding(dp(18), dp(14), dp(18), dp(18));
+        page.setBackgroundColor(Color.TRANSPARENT);
         applyPageBackground();
 
         TextView heading = text(title, 22, accent, true);
@@ -234,7 +244,8 @@ public class MainActivity extends Activity {
                 -1, 0, 1
         ));
 
-        setContentView(page);
+        root.addView(page, new FrameLayout.LayoutParams(-1, -1));
+        setContentView(root);
     }
 
     private void showHome() {
@@ -643,21 +654,33 @@ public class MainActivity extends Activity {
     }
 
     private void applyPageBackground() {
-        if (wallpaperUri != null) {
+        if (wallpaperView != null && wallpaperUri != null) {
             try {
                 BitmapFactory.Options options = new BitmapFactory.Options();
                 options.inSampleSize = 4;
                 Bitmap bitmap = BitmapFactory.decodeStream(
                         getContentResolver().openInputStream(wallpaperUri), null, options);
                 if (bitmap != null) {
-                    page.setBackground(new BitmapDrawable(getResources(), bitmap));
+                    wallpaperView.setImageDrawable(new BitmapDrawable(getResources(), bitmap));
+                    wallpaperView.setVisibility(View.VISIBLE);
+                    if (android.os.Build.VERSION.SDK_INT >= 31) {
+                        wallpaperView.setRenderEffect(
+                                android.graphics.RenderEffect.createBlurEffect(
+                                        dp(10), dp(10),
+                                        android.graphics.Shader.TileMode.CLAMP));
+                    }
                     return;
                 }
             } catch (Exception ignored) {
                 // Fall back to the selected solid background.
             }
         }
-        page.setBackgroundColor(background);
+        if (wallpaperView != null) {
+            wallpaperView.setImageDrawable(null);
+            wallpaperView.setRenderEffect(null);
+            wallpaperView.setVisibility(View.GONE);
+        }
+        if (page != null) page.setBackgroundColor(Color.TRANSPARENT);
     }
 
     private int sampleAccentColor(Uri uri) {
