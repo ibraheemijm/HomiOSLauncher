@@ -39,6 +39,8 @@ import java.util.List;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.Locale;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 public class MainActivity extends Activity {
 
@@ -293,6 +295,16 @@ public class MainActivity extends Activity {
         settings.setBackground(rounded(cardColor, 24));
         settings.setPadding(dp(12), dp(7), dp(12), dp(7));
         settings.setOnClickListener(v -> showSettings());
+        TextView foldersButton = text("▦", 21, textColor(), true);
+        foldersButton.setGravity(Gravity.CENTER);
+        foldersButton.setBackground(rounded(cardColor, 24));
+        foldersButton.setPadding(dp(12), dp(7), dp(12), dp(7));
+        foldersButton.setContentDescription("إنشاء مجلد تطبيقات");
+        foldersButton.setOnClickListener(v -> showCreateFolderDialog());
+        LinearLayout.LayoutParams foldersButtonParams =
+                new LinearLayout.LayoutParams(-2, -2);
+        foldersButtonParams.setMargins(0, 0, dp(8), 0);
+        topBar.addView(foldersButton, foldersButtonParams);
         topBar.addView(settings);
         content.addView(topBar);
 
@@ -316,7 +328,9 @@ public class MainActivity extends Activity {
         widget.addView(subtitle);
         content.addView(widget);
 
-        addSpace(content, 20);
+        addSpace(content, 12);
+        addFolderSection(content);
+        addSpace(content, 12);
 
         // Native horizontal paging: 16 apps per page, with tappable page indicators.
         HorizontalScrollView homePager = new HorizontalScrollView(this);
@@ -391,6 +405,207 @@ public class MainActivity extends Activity {
 
         handler.removeCallbacks(clockRunnable);
         handler.post(clockRunnable);
+    }
+
+    private JSONArray readFolders() {
+        try {
+            return new JSONArray(prefs.getString("app_folders", "[]"));
+        } catch (Exception ignored) {
+            return new JSONArray();
+        }
+    }
+
+    private void saveFolders(JSONArray folders) {
+        prefs.edit().putString("app_folders", folders.toString()).apply();
+    }
+
+    private void addFolderSection(LinearLayout parent) {
+        JSONArray folders = readFolders();
+        if (folders.length() == 0) return;
+        TextView heading = text("مجلداتي", 14, secondaryTextColor(), true);
+        heading.setPadding(dp(4), dp(2), dp(4), dp(6));
+        parent.addView(heading);
+        LinearLayout row = horizontal();
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        for (int i = 0; i < folders.length(); i++) {
+            JSONObject folder = folders.optJSONObject(i);
+            if (folder == null) continue;
+            String name = folder.optString("name", "مجلد");
+            JSONArray packages = folder.optJSONArray("apps");
+            int count = packages == null ? 0 : packages.length();
+            TextView tile = text("▣  " + name + "\n" + count + " تطبيقات",
+                    12, textColor(), true);
+            tile.setGravity(Gravity.CENTER);
+            tile.setMaxLines(2);
+            tile.setPadding(dp(12), dp(10), dp(12), dp(10));
+            tile.setBackground(rounded(cardColor, 18));
+            tile.setOnClickListener(v -> showFolder(folder));
+            tile.setOnLongClickListener(v -> {
+                showFolderOptions(folder);
+                return true;
+            });
+            LinearLayout.LayoutParams tileParams =
+                    new LinearLayout.LayoutParams(0, -2, 1);
+            tileParams.setMargins(dp(3), 0, dp(3), 0);
+            row.addView(tile, tileParams);
+        }
+        parent.addView(row);
+    }
+
+    private void showCreateFolderDialog() {
+        if (allApps.isEmpty()) {
+            Toast.makeText(this, "لا توجد تطبيقات لإنشاء مجلد", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        String[] labels = new String[allApps.size()];
+        boolean[] checked = new boolean[allApps.size()];
+        for (int i = 0; i < allApps.size(); i++) labels[i] = allApps.get(i).label;
+        new AlertDialog.Builder(this)
+                .setTitle("اختر تطبيقات المجلد")
+                .setMultiChoiceItems(labels, checked,
+                        (dialog, which, isChecked) -> checked[which] = isChecked)
+                .setNegativeButton("إلغاء", null)
+                .setPositiveButton("التالي", (dialog, which) -> {
+                    JSONArray selected = new JSONArray();
+                    for (int i = 0; i < checked.length; i++) {
+                        if (checked[i]) selected.put(allApps.get(i).packageName);
+                    }
+                    if (selected.length() == 0) {
+                        Toast.makeText(this, "اختر تطبيقاً واحداً على الأقل", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    EditText nameInput = new EditText(this);
+                    nameInput.setSingleLine(true);
+                    nameInput.setHint("اسم المجلد");
+                    nameInput.setTextColor(textColor());
+                    nameInput.setHintTextColor(secondaryTextColor());
+                    nameInput.setPadding(dp(14), dp(10), dp(14), dp(10));
+                    new AlertDialog.Builder(this)
+                            .setTitle("اسم المجلد")
+                            .setView(nameInput)
+                            .setNegativeButton("إلغاء", null)
+                            .setPositiveButton("حفظ", (d, w) -> {
+                                String name = nameInput.getText().toString().trim();
+                                if (name.isEmpty()) name = "مجلد جديد";
+                                JSONArray folders = readFolders();
+                                JSONObject folder = new JSONObject();
+                                try {
+                                    folder.put("id", "folder_" + System.currentTimeMillis());
+                                    folder.put("name", name);
+                                    folder.put("apps", selected);
+                                    folders.put(folder);
+                                    saveFolders(folders);
+                                    showHome();
+                                    Toast.makeText(this, "تم إنشاء المجلد", Toast.LENGTH_SHORT).show();
+                                } catch (Exception e) {
+                                    Toast.makeText(this, "تعذر حفظ المجلد", Toast.LENGTH_SHORT).show();
+                                }
+                            }).show();
+                }).show();
+    }
+
+    private void showFolder(JSONObject folder) {
+        JSONArray packages = folder.optJSONArray("apps");
+        List<AppItem> folderApps = new ArrayList<>();
+        if (packages != null) {
+            for (int i = 0; i < packages.length(); i++) {
+                String packageName = packages.optString(i);
+                for (AppItem app : allApps) {
+                    if (app.packageName.equals(packageName)) {
+                        folderApps.add(app);
+                        break;
+                    }
+                }
+            }
+        }
+        if (folderApps.isEmpty()) {
+            Toast.makeText(this, "هذا المجلد لا يحتوي على تطبيقات مثبتة", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        String[] labels = new String[folderApps.size()];
+        for (int i = 0; i < folderApps.size(); i++) labels[i] = folderApps.get(i).label;
+        new AlertDialog.Builder(this)
+                .setTitle(folder.optString("name", "مجلد"))
+                .setItems(labels, (dialog, which) -> launchApp(folderApps.get(which)))
+                .setNeutralButton("إدارة المجلد", (dialog, which) -> showFolderOptions(folder))
+                .setNegativeButton("إغلاق", null)
+                .show();
+    }
+
+    private void showFolderOptions(JSONObject folder) {
+        String[] options = {"إعادة تسمية", "تعديل التطبيقات", "حذف المجلد"};
+        new AlertDialog.Builder(this)
+                .setTitle(folder.optString("name", "مجلد"))
+                .setItems(options, (dialog, which) -> {
+                    if (which == 0) {
+                        EditText input = new EditText(this);
+                        input.setText(folder.optString("name", ""));
+                        input.setSingleLine(true);
+                        new AlertDialog.Builder(this).setTitle("اسم المجلد")
+                                .setView(input).setNegativeButton("إلغاء", null)
+                                .setPositiveButton("حفظ", (d, w) -> {
+                                    String name = input.getText().toString().trim();
+                                    if (name.isEmpty()) name = "مجلد";
+                                    folder.put("name", name);
+                                    persistFolderUpdate(folder);
+                                }).show();
+                    } else if (which == 1) {
+                        showEditFolderApps(folder);
+                    } else {
+                        new AlertDialog.Builder(this).setTitle("حذف المجلد؟")
+                                .setMessage("سيُحذف المجلد فقط، ولن تُحذف التطبيقات من الهاتف.")
+                                .setNegativeButton("إلغاء", null)
+                                .setPositiveButton("حذف", (d, w) -> {
+                                    JSONArray old = readFolders();
+                                    JSONArray updated = new JSONArray();
+                                    String id = folder.optString("id", "");
+                                    for (int i = 0; i < old.length(); i++) {
+                                        JSONObject item = old.optJSONObject(i);
+                                        if (item != null && !item.optString("id", "").equals(id)) updated.put(item);
+                                    }
+                                    saveFolders(updated);
+                                    showHome();
+                                }).show();
+                    }
+                }).show();
+    }
+
+    private void showEditFolderApps(JSONObject folder) {
+        String[] labels = new String[allApps.size()];
+        boolean[] checked = new boolean[allApps.size()];
+        Set<String> existing = new HashSet<>();
+        JSONArray apps = folder.optJSONArray("apps");
+        if (apps != null) for (int i = 0; i < apps.length(); i++) existing.add(apps.optString(i));
+        for (int i = 0; i < allApps.size(); i++) {
+            labels[i] = allApps.get(i).label;
+            checked[i] = existing.contains(allApps.get(i).packageName);
+        }
+        new AlertDialog.Builder(this).setTitle("تعديل تطبيقات المجلد")
+                .setMultiChoiceItems(labels, checked,
+                        (dialog, which, isChecked) -> checked[which] = isChecked)
+                .setNegativeButton("إلغاء", null)
+                .setPositiveButton("حفظ", (dialog, which) -> {
+                    JSONArray updated = new JSONArray();
+                    for (int i = 0; i < checked.length; i++) if (checked[i]) updated.put(allApps.get(i).packageName);
+                    try {
+                        folder.put("apps", updated);
+                        persistFolderUpdate(folder);
+                    } catch (Exception e) {
+                        Toast.makeText(this, "تعذر تحديث المجلد", Toast.LENGTH_SHORT).show();
+                    }
+                }).show();
+    }
+
+    private void persistFolderUpdate(JSONObject changed) {
+        JSONArray old = readFolders();
+        JSONArray updated = new JSONArray();
+        String id = changed.optString("id", "");
+        for (int i = 0; i < old.length(); i++) {
+            JSONObject item = old.optJSONObject(i);
+            if (item != null) updated.put(item.optString("id", "").equals(id) ? changed : item);
+        }
+        saveFolders(updated);
+        showHome();
     }
 
     private void addGlassDock() {
