@@ -23,6 +23,7 @@ import android.view.View;
 import android.view.inputmethod.EditorInfo;
 import android.widget.EditText;
 import android.widget.GridLayout;
+import android.widget.HorizontalScrollView;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -35,6 +36,8 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.Locale;
 
 public class MainActivity extends Activity {
@@ -61,6 +64,7 @@ public class MainActivity extends Activity {
     private int clockSize;
     private Uri wallpaperUri;
     private static final int REQUEST_WALLPAPER = 4201;
+    private static final String FAVORITES_KEY = "favorite_apps";
 
     private final int[] accents = {
             Color.rgb(0, 220, 255),
@@ -296,18 +300,60 @@ public class MainActivity extends Activity {
 
         addSpace(content, 20);
 
-        GridLayout homeGrid = new GridLayout(this);
-        homeGrid.setColumnCount(4);
-        homeGrid.setUseDefaultMargins(false);
-        int homeCount = Math.min(16, allApps.size());
-        for (int i = 0; i < homeCount; i++) {
-            GridLayout.LayoutParams tileParams = new GridLayout.LayoutParams();
-            tileParams.width = 0;
-            tileParams.columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f);
-            tileParams.setMargins(dp(2), dp(4), dp(2), dp(4));
-            homeGrid.addView(createAppTile(allApps.get(i), true), tileParams);
+        // Native horizontal paging: 16 apps per page, with tappable page indicators.
+        HorizontalScrollView homePager = new HorizontalScrollView(this);
+        homePager.setHorizontalScrollBarEnabled(false);
+        homePager.setFillViewport(true);
+        homePager.setOverScrollMode(View.OVER_SCROLL_NEVER);
+        LinearLayout pagesContainer = horizontal();
+        pagesContainer.setGravity(Gravity.TOP);
+        final int pageWidth = Math.max(1,
+                getResources().getDisplayMetrics().widthPixels - dp(36));
+        final int totalPages = Math.max(1, (allApps.size() + 15) / 16);
+        final List<TextView> pageDots = new ArrayList<>();
+        for (int pageIndex = 0; pageIndex < totalPages; pageIndex++) {
+            GridLayout homeGrid = new GridLayout(this);
+            homeGrid.setColumnCount(4);
+            homeGrid.setUseDefaultMargins(false);
+            int start = pageIndex * 16;
+            int end = Math.min(start + 16, allApps.size());
+            for (int i = start; i < end; i++) {
+                GridLayout.LayoutParams tileParams = new GridLayout.LayoutParams();
+                tileParams.width = 0;
+                tileParams.columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f);
+                tileParams.setMargins(dp(2), dp(4), dp(2), dp(4));
+                homeGrid.addView(createAppTile(allApps.get(i), true), tileParams);
+            }
+            pagesContainer.addView(homeGrid, new LinearLayout.LayoutParams(pageWidth, -2));
         }
-        content.addView(homeGrid, new LinearLayout.LayoutParams(-1, -2));
+        homePager.addView(pagesContainer);
+        content.addView(homePager, new LinearLayout.LayoutParams(-1, -2));
+
+        if (totalPages > 1) {
+            LinearLayout indicators = horizontal();
+            indicators.setGravity(Gravity.CENTER);
+            indicators.setPadding(0, dp(5), 0, dp(5));
+            for (int i = 0; i < totalPages; i++) {
+                final int targetPage = i;
+                TextView dot = text(i == 0 ? "●" : "○", 10,
+                        i == 0 ? accent : secondaryTextColor(), true);
+                dot.setGravity(Gravity.CENTER);
+                dot.setPadding(dp(5), dp(4), dp(5), dp(4));
+                dot.setOnClickListener(v -> homePager.smoothScrollTo(targetPage * pageWidth, 0));
+                pageDots.add(dot);
+                indicators.addView(dot);
+            }
+            homePager.setOnScrollChangeListener((View v, int scrollX, int scrollY,
+                                                  int oldScrollX, int oldScrollY) -> {
+                int active = Math.max(0, Math.min(totalPages - 1,
+                        Math.round((float) scrollX / pageWidth)));
+                for (int i = 0; i < pageDots.size(); i++) {
+                    pageDots.get(i).setText(i == active ? "●" : "○");
+                    pageDots.get(i).setTextColor(i == active ? accent : secondaryTextColor());
+                }
+            });
+            content.addView(indicators);
+        }
 
         addSpace(content, 12);
         TextView library = text("⌕   مكتبة التطبيقات", 14, textColor(), true);
@@ -361,6 +407,12 @@ public class MainActivity extends Activity {
 
     private List<AppItem> chooseDockApps() {
         List<AppItem> selected = new ArrayList<>();
+        Set<String> favoritePackages = getFavoritePackages();
+        for (AppItem app : allApps) {
+            if (favoritePackages.contains(app.packageName) && selected.size() < 4) {
+                selected.add(app);
+            }
+        }
         String[][] priorities = {
                 {"phone", "الهاتف", "dialer", "اتصال"},
                 {"message", "الرسائل", "sms", "messaging"},
@@ -390,6 +442,39 @@ public class MainActivity extends Activity {
             if (!selected.contains(app)) selected.add(app);
         }
         return selected;
+    }
+
+    private Set<String> getFavoritePackages() {
+        Set<String> favorites = new HashSet<>();
+        String stored = prefs.getString(FAVORITES_KEY, "");
+        if (!stored.isEmpty()) {
+            for (String value : stored.split("\\|")) {
+                if (!value.trim().isEmpty()) favorites.add(value.trim());
+            }
+        }
+        return favorites;
+    }
+
+    private void toggleFavorite(AppItem app) {
+        Set<String> favorites = getFavoritePackages();
+        boolean removed;
+        if (favorites.contains(app.packageName)) {
+            favorites.remove(app.packageName);
+            removed = true;
+        } else {
+            favorites.add(app.packageName);
+            removed = false;
+        }
+        StringBuilder stored = new StringBuilder();
+        for (String favorite : favorites) {
+            if (stored.length() > 0) stored.append('|');
+            stored.append(favorite);
+        }
+        prefs.edit().putString(FAVORITES_KEY, stored.toString()).apply();
+        Toast.makeText(this,
+                removed ? "أزيل من شريط التطبيقات" : "أضيف إلى شريط التطبيقات",
+                Toast.LENGTH_SHORT).show();
+        if (showingApps) showApps(); else showHome();
     }
 
     private void showApps() {
@@ -510,6 +595,11 @@ public class MainActivity extends Activity {
         ));
 
         tile.setOnClickListener(v -> launchApp(app));
+        tile.setOnLongClickListener(v -> {
+            toggleFavorite(app);
+            return true;
+        });
+        tile.setContentDescription(app.label + "؛ اضغط مطولاً لإضافة أو إزالة من الشريط السفلي");
 
         return tile;
     }
@@ -859,4 +949,3 @@ public class MainActivity extends Activity {
         String activityName;
         android.graphics.drawable.Drawable icon;
     }
-            } 
