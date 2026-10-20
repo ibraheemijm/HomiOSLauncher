@@ -354,6 +354,7 @@ public class MainActivity extends Activity {
         widget.setBackground(rounded(cardColor, 25));
         TextView date = text(new SimpleDateFormat("EEEE، d MMMM", new Locale("ar"))
                 .format(new Date()), 14, secondaryTextColor(), true);
+        dateView = date;
         date.setGravity(Gravity.CENTER);
         widget.addView(date);
 
