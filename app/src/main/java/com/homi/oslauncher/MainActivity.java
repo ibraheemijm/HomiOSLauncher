@@ -1055,7 +1055,9 @@ public class MainActivity extends Activity {
                 "حجم أيقونات الرئيسية",
                 "إظهار أسماء التطبيقات",
                 "أعمدة مكتبة التطبيقات",
-                "إعادة تحميل التطبيقات"
+                "حجم أيقونات المكتبة",
+                "إعادة تحميل التطبيقات",
+                "إعادة ضبط تخصيصات المشغل"
         };
 
         new AlertDialog.Builder(this)
@@ -1098,7 +1100,9 @@ public class MainActivity extends Activity {
                                 Toast.LENGTH_SHORT).show();
                     } else if (which == 9) {
                         chooseGridColumns(false);
-                    } else {
+                    } else if (which == 10) {
+                        chooseIconSize(false);
+                    } else if (which == 11) {
                         loadApps();
                         showHome();
                         Toast.makeText(
@@ -1106,6 +1110,31 @@ public class MainActivity extends Activity {
                                 "تم تحديث قائمة التطبيقات",
                                 Toast.LENGTH_SHORT
                         ).show();
+                    } else {
+                        new AlertDialog.Builder(this)
+                                .setTitle("إعادة ضبط التخصيصات؟")
+                                .setMessage("سيتم إعادة الألوان والأحجام وترتيب التطبيقات والمفضلة إلى الوضع الافتراضي. ستبقى مجلداتك محفوظة.")
+                                .setNegativeButton("إلغاء", null)
+                                .setPositiveButton("إعادة الضبط", (d, w) -> {
+                                    prefs.edit()
+                                            .remove("accent")
+                                            .remove("custom_accent")
+                                            .remove("clock_size")
+                                            .remove("wallpaper_uri")
+                                            .remove("light_background")
+                                            .remove("home_columns")
+                                            .remove("drawer_columns")
+                                            .remove("home_icon_size")
+                                            .remove("drawer_icon_size")
+                                            .remove("home_labels")
+                                            .remove("app_order")
+                                            .remove(FAVORITES_KEY)
+                                            .apply();
+                                    loadSettings();
+                                    loadApps();
+                                    showHome();
+                                    Toast.makeText(this, "تمت إعادة التخصيصات مع الحفاظ على المجلدات", Toast.LENGTH_SHORT).show();
+                                }).show();
                     }
                 })
                 .setNegativeButton("إغلاق", null)
