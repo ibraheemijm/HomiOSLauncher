@@ -561,6 +561,7 @@ public class MainActivity extends Activity {
         LinearLayout panel = vertical();
         panel.setPadding(dp(4), dp(4), dp(4), dp(2));
 
+        final AlertDialog[] folderDialog = new AlertDialog[1];
         ScrollView folderScroll = new ScrollView(this);
         folderScroll.setFillViewport(true);
         folderScroll.setOverScrollMode(View.OVER_SCROLL_NEVER);
@@ -598,8 +599,8 @@ public class MainActivity extends Activity {
 
                 tile.setContentDescription("فتح " + app.label);
                 tile.setOnClickListener(v -> {
+                    if (folderDialog[0] != null) folderDialog[0].dismiss();
                     launchApp(app);
-                    folderDialogDismissIfShowing();
                 });
 
                 GridLayout.LayoutParams tileParams = new GridLayout.LayoutParams();
@@ -619,16 +620,13 @@ public class MainActivity extends Activity {
                 .setNeutralButton("إدارة المجلد", null)
                 .setNegativeButton("إغلاق", null)
                 .create();
+        folderDialog[0] = dialog;
         dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_NEUTRAL)
                 .setOnClickListener(v -> {
                     dialog.dismiss();
                     showFolderOptions(folder);
                 }));
         dialog.show();
-    }
-
-    private void folderDialogDismissIfShowing() {
-        // Kept intentionally empty; the folder dialog is dismissed by the launch action below.
     }
 
     private void showFolderOptions(JSONObject folder) {
