@@ -380,14 +380,16 @@ public class MainActivity extends Activity {
         pagesContainer.setGravity(Gravity.TOP);
         final int pageWidth = Math.max(1,
                 getResources().getDisplayMetrics().widthPixels - dp(36));
-        final int totalPages = Math.max(1, (allApps.size() + 15) / 16);
+        final int homeColumns = Math.max(3, Math.min(6, prefs.getInt("home_columns", 4)));
+        final int pageCapacity = homeColumns * 4;
+        final int totalPages = Math.max(1, (allApps.size() + pageCapacity - 1) / pageCapacity);
         final List<TextView> pageDots = new ArrayList<>();
         for (int pageIndex = 0; pageIndex < totalPages; pageIndex++) {
             GridLayout homeGrid = new GridLayout(this);
-            homeGrid.setColumnCount(4);
+            homeGrid.setColumnCount(homeColumns);
             homeGrid.setUseDefaultMargins(false);
-            int start = pageIndex * 16;
-            int end = Math.min(start + 16, allApps.size());
+            int start = pageIndex * pageCapacity;
+            int end = Math.min(start + pageCapacity, allApps.size());
             for (int i = start; i < end; i++) {
                 GridLayout.LayoutParams tileParams = new GridLayout.LayoutParams();
                 tileParams.width = 0;
@@ -616,7 +618,7 @@ public class MainActivity extends Activity {
 
         AlertDialog dialog = new AlertDialog.Builder(this)
                 .setTitle(folder.optString("name", "مجلد"))
-                .setView(panel, dp(14), dp(2), dp(14), dp(2))
+                .setView(panel)
                 .setNeutralButton("إدارة المجلد", null)
                 .setNegativeButton("إغلاق", null)
                 .create();
@@ -834,7 +836,7 @@ public class MainActivity extends Activity {
         content.addView(searchBox);
 
         GridLayout results = new GridLayout(this);
-        results.setColumnCount(5);
+        results.setColumnCount(Math.max(3, Math.min(6, prefs.getInt("drawer_columns", 5))));
         results.setUseDefaultMargins(false);
         content.addView(results, new LinearLayout.LayoutParams(-1, -2));
 
@@ -871,7 +873,8 @@ public class MainActivity extends Activity {
                 empty.setPadding(0, dp(28), 0, dp(28));
                 GridLayout.LayoutParams emptyParams = new GridLayout.LayoutParams();
                 emptyParams.width = -1;
-                emptyParams.columnSpec = GridLayout.spec(0, 5);
+                emptyParams.columnSpec = GridLayout.spec(0,
+                        Math.max(3, Math.min(6, prefs.getInt("drawer_columns", 5))));
                 results.addView(empty, emptyParams);
             }
         };
@@ -912,7 +915,9 @@ public class MainActivity extends Activity {
         ImageView icon = new ImageView(this);
         icon.setImageDrawable(app.icon);
 
-        int iconSize = compact ? 52 : 56;
+        int iconSize = compact
+                ? Math.max(36, Math.min(68, prefs.getInt("home_icon_size", 52)))
+                : Math.max(36, Math.min(68, prefs.getInt("drawer_icon_size", 56)));
         LinearLayout.LayoutParams iconParams =
                 new LinearLayout.LayoutParams(dp(iconSize), dp(iconSize));
         iconParams.gravity = Gravity.CENTER;
@@ -926,9 +931,12 @@ public class MainActivity extends Activity {
             label.setShadowLayer(dp(2), 0, dp(1), Color.argb(170, 0, 0, 0));
         }
         label.setPadding(0, dp(6), 0, 0);
+        if (compact && !prefs.getBoolean("home_labels", true)) {
+            label.setVisibility(View.GONE);
+        }
 
         tile.addView(label, new LinearLayout.LayoutParams(
-                -1, dp(36)
+                -1, compact && !prefs.getBoolean("home_labels", true) ? 0 : dp(36)
         ));
 
         tile.setOnClickListener(v -> launchApp(app));
@@ -1043,6 +1051,10 @@ public class MainActivity extends Activity {
                 "تبديل الوضع الفاتح/الداكن",
                 "إزالة صورة الخلفية",
                 "طريقة تثبيت التطبيقات في الشريط",
+                "أعمدة الشاشة الرئيسية",
+                "حجم أيقونات الرئيسية",
+                "إظهار أسماء التطبيقات",
+                "أعمدة مكتبة التطبيقات",
                 "إعادة تحميل التطبيقات"
         };
 
@@ -1072,6 +1084,20 @@ public class MainActivity extends Activity {
                                 .setMessage("اضغط مطولاً على أي تطبيق في الرئيسية أو مكتبة التطبيقات لإضافته إلى الشريط السفلي أو إزالته. تُحفظ اختياراتك تلقائياً.")
                                 .setPositiveButton("حسناً", null)
                                 .show();
+                    } else if (which == 6) {
+                        chooseGridColumns(true);
+                    } else if (which == 7) {
+                        chooseIconSize(true);
+                    } else if (which == 8) {
+                        prefs.edit().putBoolean("home_labels",
+                                !prefs.getBoolean("home_labels", true)).apply();
+                        showHome();
+                        Toast.makeText(this,
+                                prefs.getBoolean("home_labels", true)
+                                        ? "تم إظهار أسماء التطبيقات" : "تم إخفاء أسماء التطبيقات",
+                                Toast.LENGTH_SHORT).show();
+                    } else if (which == 9) {
+                        chooseGridColumns(false);
                     } else {
                         loadApps();
                         showHome();
@@ -1083,6 +1109,39 @@ public class MainActivity extends Activity {
                     }
                 })
                 .setNegativeButton("إغلاق", null)
+                .show();
+    }
+
+    private void chooseGridColumns(boolean home) {
+        String key = home ? "home_columns" : "drawer_columns";
+        String[] choices = {"3 أعمدة", "4 أعمدة", "5 أعمدة", "6 أعمدة"};
+        int saved = prefs.getInt(key, home ? 4 : 5);
+        int selected = Math.max(0, Math.min(3, saved - 3));
+        new AlertDialog.Builder(this)
+                .setTitle(home ? "أعمدة الشاشة الرئيسية" : "أعمدة مكتبة التطبيقات")
+                .setSingleChoiceItems(choices, selected, (dialog, which) -> {
+                    prefs.edit().putInt(key, which + 3).apply();
+                    dialog.dismiss();
+                    if (home) showHome(); else showApps();
+                })
+                .setNegativeButton("إلغاء", null)
+                .show();
+    }
+
+    private void chooseIconSize(boolean home) {
+        String[] choices = {"صغيرة", "متوسطة", "كبيرة"};
+        String key = home ? "home_icon_size" : "drawer_icon_size";
+        int current = prefs.getInt(key, home ? 52 : 56);
+        int selected = current < 48 ? 0 : current < 60 ? 1 : 2;
+        new AlertDialog.Builder(this)
+                .setTitle(home ? "حجم أيقونات الرئيسية" : "حجم أيقونات المكتبة")
+                .setSingleChoiceItems(choices, selected, (dialog, which) -> {
+                    int[] sizes = {44, 54, 64};
+                    prefs.edit().putInt(key, sizes[which]).apply();
+                    dialog.dismiss();
+                    if (home) showHome(); else showApps();
+                })
+                .setNegativeButton("إلغاء", null)
                 .show();
     }
 
