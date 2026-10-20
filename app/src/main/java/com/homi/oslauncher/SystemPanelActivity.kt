@@ -77,8 +77,8 @@ class SystemPanelActivity : ComponentActivity() {
                                 (value * 255).toInt().coerceIn(1, 255))
                         }
                     },
-                    onWifiSettings = { openSettings(Settings.Panel.ACTION_WIFI) },
-                    onBluetoothSettings = { openSettings(Settings.Panel.ACTION_BLUETOOTH) },
+                    onWifiSettings = { openSettings(Settings.ACTION_WIFI_SETTINGS) },
+                    onBluetoothSettings = { openSettings(Settings.ACTION_BLUETOOTH_SETTINGS) },
                     onNotificationPermission = {
                         startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
                     },
