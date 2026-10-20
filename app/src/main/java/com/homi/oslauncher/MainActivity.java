@@ -557,18 +557,78 @@ public class MainActivity extends Activity {
                 }
             }
         }
+
+        LinearLayout panel = vertical();
+        panel.setPadding(dp(4), dp(4), dp(4), dp(2));
+
+        ScrollView folderScroll = new ScrollView(this);
+        folderScroll.setFillViewport(true);
+        folderScroll.setOverScrollMode(View.OVER_SCROLL_NEVER);
+        GridLayout folderGrid = new GridLayout(this);
+        folderGrid.setColumnCount(3);
+        folderGrid.setUseDefaultMargins(false);
+
         if (folderApps.isEmpty()) {
-            Toast.makeText(this, "هذا المجلد لا يحتوي على تطبيقات مثبتة", Toast.LENGTH_SHORT).show();
-            return;
+            TextView empty = text("هذا المجلد فارغ حالياً", 14, secondaryTextColor(), false);
+            empty.setGravity(Gravity.CENTER);
+            empty.setPadding(dp(12), dp(30), dp(12), dp(30));
+            folderGrid.addView(empty, new GridLayout.LayoutParams());
+        } else {
+            for (AppItem app : folderApps) {
+                LinearLayout tile = vertical();
+                tile.setGravity(Gravity.CENTER);
+                tile.setPadding(dp(4), dp(10), dp(4), dp(10));
+                tile.setBackground(rounded(cardColor, 18));
+                tile.setClickable(true);
+                tile.setFocusable(true);
+
+                ImageView icon = new ImageView(this);
+                icon.setImageDrawable(app.icon);
+                icon.setScaleType(ImageView.ScaleType.FIT_CENTER);
+                LinearLayout.LayoutParams iconParams =
+                        new LinearLayout.LayoutParams(dp(46), dp(46));
+                iconParams.gravity = Gravity.CENTER;
+                tile.addView(icon, iconParams);
+
+                TextView label = text(app.label, 11, textColor(), false);
+                label.setGravity(Gravity.CENTER);
+                label.setMaxLines(2);
+                label.setPadding(dp(2), dp(6), dp(2), 0);
+                tile.addView(label, new LinearLayout.LayoutParams(-1, dp(38)));
+
+                tile.setContentDescription("فتح " + app.label);
+                tile.setOnClickListener(v -> {
+                    launchApp(app);
+                    folderDialogDismissIfShowing();
+                });
+
+                GridLayout.LayoutParams tileParams = new GridLayout.LayoutParams();
+                tileParams.width = 0;
+                tileParams.columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f);
+                tileParams.setMargins(dp(3), dp(3), dp(3), dp(3));
+                folderGrid.addView(tile, tileParams);
+            }
         }
-        String[] labels = new String[folderApps.size()];
-        for (int i = 0; i < folderApps.size(); i++) labels[i] = folderApps.get(i).label;
-        new AlertDialog.Builder(this)
+
+        folderScroll.addView(folderGrid);
+        panel.addView(folderScroll, new LinearLayout.LayoutParams(-1, dp(300)));
+
+        AlertDialog dialog = new AlertDialog.Builder(this)
                 .setTitle(folder.optString("name", "مجلد"))
-                .setItems(labels, (dialog, which) -> launchApp(folderApps.get(which)))
-                .setNeutralButton("إدارة المجلد", (dialog, which) -> showFolderOptions(folder))
+                .setView(panel, dp(14), dp(2), dp(14), dp(2))
+                .setNeutralButton("إدارة المجلد", null)
                 .setNegativeButton("إغلاق", null)
-                .show();
+                .create();
+        dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_NEUTRAL)
+                .setOnClickListener(v -> {
+                    dialog.dismiss();
+                    showFolderOptions(folder);
+                }));
+        dialog.show();
+    }
+
+    private void folderDialogDismissIfShowing() {
+        // Kept intentionally empty; the folder dialog is dismissed by the launch action below.
     }
 
     private void showFolderOptions(JSONObject folder) {
