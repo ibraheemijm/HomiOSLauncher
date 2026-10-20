@@ -1010,7 +1010,8 @@ public class MainActivity extends Activity {
                 "أعمدة مكتبة التطبيقات",
                 "حجم أيقونات المكتبة",
                 "إعادة تحميل التطبيقات",
-                "إعادة ضبط تخصيصات المشغل"
+                "إعادة ضبط تخصيصات المشغل",
+                "لوحة النظام والإشعارات"
         };
 
         new AlertDialog.Builder(this)
@@ -1063,6 +1064,8 @@ public class MainActivity extends Activity {
                                 "تم تحديث قائمة التطبيقات",
                                 Toast.LENGTH_SHORT
                         ).show();
+                    } else if (which == 12) {
+                        startActivity(new Intent(this, SystemPanelActivity.class));
                     } else {
                         new AlertDialog.Builder(this)
                                 .setTitle("إعادة ضبط التخصيصات؟")
