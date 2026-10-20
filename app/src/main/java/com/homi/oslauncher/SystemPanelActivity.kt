@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.media.AudioManager
 import android.os.Bundle
+import android.os.Build
 import android.provider.Settings
 import android.view.View
 import android.view.WindowManager
@@ -79,6 +80,8 @@ class SystemPanelActivity : ComponentActivity() {
                     },
                     onWifiSettings = { openSettings(Settings.ACTION_WIFI_SETTINGS) },
                     onBluetoothSettings = { openSettings(Settings.ACTION_BLUETOOTH_SETTINGS) },
+                    onMobileDataSettings = { openInternetSettings() },
+                    onAirplaneSettings = { openSettings(Settings.ACTION_AIRPLANE_MODE_SETTINGS) },
                     onNotificationPermission = {
                         startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
                     },
@@ -87,6 +90,18 @@ class SystemPanelActivity : ComponentActivity() {
                         .getString("items", "[]").orEmpty()
                 )
             }
+        }
+    }
+
+    private fun openInternetSettings() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            runCatching {
+                startActivity(Intent(Settings.Panel.ACTION_INTERNET_CONNECTIVITY))
+            }.onFailure {
+                openSettings(Settings.ACTION_WIRELESS_SETTINGS)
+            }
+        } else {
+            openSettings(Settings.ACTION_DATA_ROAMING_SETTINGS)
         }
     }
 
@@ -108,6 +123,8 @@ private fun SystemPanel(
     onBrightness: (Float) -> Unit,
     onWifiSettings: () -> Unit,
     onBluetoothSettings: () -> Unit,
+    onMobileDataSettings: () -> Unit,
+    onAirplaneSettings: () -> Unit,
     onNotificationPermission: () -> Unit,
     onBack: () -> Unit,
     notificationJson: String
@@ -166,13 +183,21 @@ private fun SystemPanel(
                         Button(onClick = onWifiSettings, modifier = Modifier.weight(1f)) { Text("Wi-Fi") }
                         Button(onClick = onBluetoothSettings, modifier = Modifier.weight(1f)) { Text("Bluetooth") }
                     }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(onClick = onMobileDataSettings, modifier = Modifier.weight(1f)) { Text("بيانات الهاتف") }
+                        Button(onClick = onAirplaneSettings, modifier = Modifier.weight(1f)) { Text("وضع الطيران") }
+                    }
+                    Text("قد يفتح أندرويد صفحة الاتصال بدلاً من تبديل البيانات أو وضع الطيران مباشرةً، بحسب إصدار النظام والشركة المصنّعة.",
+                        color = Color(0xFF7F90AA), fontSize = 11.sp)
                 }
             }
             item {
                 PanelCard(title = "الإشعارات", subtitle = "فعّل وصول الإشعارات لعرض المحتوى الحقيقي") {
                     Button(onClick = onNotificationPermission, modifier = Modifier.fillMaxWidth()) {
-                        Text("منح صلاحية الإشعارات")
+                        Text("فتح إعدادات وصول الإشعارات")
                     }
+                    Text("إذا كان الخيار محظوراً على أندرويد 13 أو أحدث، افتح معلومات تطبيق Homi OS من إعدادات الهاتف، ثم قائمة ⋮ واختر السماح بالإعدادات المقيّدة إن ظهرت. بعد ذلك ارجع وفعّل وصول الإشعارات يدوياً.",
+                        color = Color(0xFF9BAAC3), fontSize = 12.sp)
                 }
             }
             item { Text("الإشعارات الأخيرة (${notifications.size})", color = Color.White, fontSize = 20.sp) }
