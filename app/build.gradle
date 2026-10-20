@@ -13,7 +13,7 @@ android {
         applicationId 'com.homi.oslauncher'
         minSdk 23
         targetSdk 35
-        versionCode 2
+        versionCode 3
         versionName '1.2.0'
     }
 
