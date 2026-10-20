@@ -306,7 +306,7 @@ public class MainActivity extends Activity {
         edgeGesture.setBackgroundColor(Color.TRANSPARENT);
         edgeGesture.setContentDescription("فتح لوحة النظام بالسحب من حافة الشاشة");
         FrameLayout.LayoutParams edgeParams = new FrameLayout.LayoutParams(
-                dp(26), -1, Gravity.RIGHT | Gravity.CENTER_VERTICAL);
+                dp(26), -1, (prefs.getInt("panel_gesture_side", 0) == 1 ? Gravity.LEFT : Gravity.RIGHT) | Gravity.CENTER_VERTICAL);
         root.addView(edgeGesture, edgeParams);
         edgeGesture.setOnTouchListener((view, event) -> {
             int side = prefs.getInt("panel_gesture_side", 0); // 0 right, 1 left, 2 off
@@ -1110,6 +1110,7 @@ public class MainActivity extends Activity {
                                     Toast.makeText(this, selected == 0 ? "الفتح من الحافة اليمنى" :
                                             selected == 1 ? "الفتح من الحافة اليسرى" : "تم تعطيل السحب الجانبي",
                                             Toast.LENGTH_SHORT).show();
+                                    showHome();
                                 })
                                 .setNegativeButton("إغلاق", null)
                                 .show();
