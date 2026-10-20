@@ -70,6 +70,8 @@ public class MainActivity extends Activity {
     private int clockSize;
     private Uri wallpaperUri;
     private int systemBottomInset = 0;
+    private float gestureStartX = 0f;
+    private float gestureStartY = 0f;
     private static final int REQUEST_WALLPAPER = 4201;
     private static final String FAVORITES_KEY = "favorite_apps";
 
@@ -298,19 +300,48 @@ public class MainActivity extends Activity {
         ));
 
         root.addView(page, new FrameLayout.LayoutParams(-1, -1));
+
+        // Narrow edge gesture target; configurable from launcher settings.
+        View edgeGesture = new View(this);
+        edgeGesture.setBackgroundColor(Color.TRANSPARENT);
+        edgeGesture.setContentDescription("فتح لوحة النظام بالسحب من حافة الشاشة");
+        FrameLayout.LayoutParams edgeParams = new FrameLayout.LayoutParams(
+                dp(26), -1, Gravity.RIGHT | Gravity.CENTER_VERTICAL);
+        root.addView(edgeGesture, edgeParams);
+        edgeGesture.setOnTouchListener((view, event) -> {
+            int side = prefs.getInt("panel_gesture_side", 0); // 0 right, 1 left, 2 off
+            if (side == 2) return false;
+            if (event.getAction() == android.view.MotionEvent.ACTION_DOWN) {
+                gestureStartX = event.getX();
+                gestureStartY = event.getY();
+                return true;
+            }
+            if (event.getAction() == android.view.MotionEvent.ACTION_UP) {
+                float dx = event.getX() - gestureStartX;
+                float dy = event.getY() - gestureStartY;
+                boolean inward = side == 0 ? dx < -dp(55) : dx > dp(55);
+                if (inward && Math.abs(dx) > Math.abs(dy) * 1.2f) {
+                    startActivity(new Intent(this, SystemPanelActivity.class));
+                }
+                return true;
+            }
+            return true;
+        });
+
         root.setOnApplyWindowInsetsListener((view, insets) -> {
             int topInset = insets.getSystemWindowInsetTop();
             int bottomInset = insets.getSystemWindowInsetBottom();
             systemBottomInset = bottomInset;
             page.setPadding(dp(18), dp(14) + topInset,
                     dp(18), dp(18) + bottomInset);
-            if (root.getChildCount() > 2) {
-                View dock = root.getChildAt(2);
-                if (dock.getLayoutParams() instanceof FrameLayout.LayoutParams) {
+            for (int i = 0; i < root.getChildCount(); i++) {
+                View child = root.getChildAt(i);
+                if ("homi_dock".equals(child.getTag())
+                        && child.getLayoutParams() instanceof FrameLayout.LayoutParams) {
                     FrameLayout.LayoutParams dockParams =
-                            (FrameLayout.LayoutParams) dock.getLayoutParams();
+                            (FrameLayout.LayoutParams) child.getLayoutParams();
                     dockParams.bottomMargin = dp(12) + bottomInset;
-                    dock.setLayoutParams(dockParams);
+                    child.setLayoutParams(dockParams);
                 }
             }
             return insets;
@@ -683,6 +714,7 @@ public class MainActivity extends Activity {
         FrameLayout.LayoutParams dockParams = new FrameLayout.LayoutParams(
                 -1, -2, Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
         dockParams.setMargins(dp(14), 0, dp(14), dp(12) + systemBottomInset);
+        dock.setTag("homi_dock");
         rootLayout.addView(dock, dockParams);
     }
 
@@ -1011,7 +1043,8 @@ public class MainActivity extends Activity {
                 "حجم أيقونات المكتبة",
                 "إعادة تحميل التطبيقات",
                 "إعادة ضبط تخصيصات المشغل",
-                "لوحة النظام والإشعارات"
+                "لوحة النظام والإشعارات",
+                "جهة السحب لفتح لوحة النظام"
         };
 
         new AlertDialog.Builder(this)
@@ -1066,6 +1099,20 @@ public class MainActivity extends Activity {
                         ).show();
                     } else if (which == 13) {
                         startActivity(new Intent(this, SystemPanelActivity.class));
+                    } else if (which == 14) {
+                        String[] sides = {"من اليمين إلى اليسار", "من اليسار إلى اليمين", "تعطيل السحب الجانبي"};
+                        int current = prefs.getInt("panel_gesture_side", 0);
+                        new AlertDialog.Builder(this)
+                                .setTitle("جهة السحب لفتح لوحة النظام")
+                                .setSingleChoiceItems(sides, Math.max(0, Math.min(2, current)), (d, selected) -> {
+                                    prefs.edit().putInt("panel_gesture_side", selected).apply();
+                                    d.dismiss();
+                                    Toast.makeText(this, selected == 0 ? "الفتح من الحافة اليمنى" :
+                                            selected == 1 ? "الفتح من الحافة اليسرى" : "تم تعطيل السحب الجانبي",
+                                            Toast.LENGTH_SHORT).show();
+                                })
+                                .setNegativeButton("إغلاق", null)
+                                .show();
                     } else {
                         new AlertDialog.Builder(this)
                                 .setTitle("إعادة ضبط التخصيصات؟")
