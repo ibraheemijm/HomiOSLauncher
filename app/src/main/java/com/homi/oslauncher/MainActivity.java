@@ -744,9 +744,17 @@ public class MainActivity extends Activity {
     private List<AppItem> chooseDockApps() {
         List<AppItem> selected = new ArrayList<>();
         Set<String> favoritePackages = getFavoritePackages();
-        for (AppItem app : allApps) {
-            if (favoritePackages.contains(app.packageName) && selected.size() < 4) {
-                selected.add(app);
+        String storedFavorites = prefs.getString(FAVORITES_KEY, "");
+        if (!storedFavorites.isEmpty()) {
+            for (String packageName : storedFavorites.split("\\|")) {
+                if (packageName.trim().isEmpty()) continue;
+                for (AppItem app : allApps) {
+                    if (app.packageName.equals(packageName.trim()) && !selected.contains(app)) {
+                        selected.add(app);
+                        break;
+                    }
+                }
+                if (selected.size() >= 4) break;
             }
         }
         String[][] priorities = {
@@ -782,7 +790,7 @@ public class MainActivity extends Activity {
     }
 
     private Set<String> getFavoritePackages() {
-        Set<String> favorites = new HashSet<>();
+        Set<String> favorites = new java.util.LinkedHashSet<>();
         String stored = prefs.getString(FAVORITES_KEY, "");
         if (!stored.isEmpty()) {
             for (String value : stored.split("\\|")) {
@@ -793,7 +801,7 @@ public class MainActivity extends Activity {
     }
 
     private void toggleFavorite(AppItem app) {
-        Set<String> favorites = getFavoritePackages();
+        Set<String> favorites = new java.util.LinkedHashSet<>(getFavoritePackages());
         boolean removed;
         if (favorites.contains(app.packageName)) {
             favorites.remove(app.packageName);
