@@ -368,77 +368,21 @@ public class MainActivity extends Activity {
         widget.addView(subtitle);
         content.addView(widget);
 
-        addSpace(content, 12);
-        addFolderSection(content);
-        addSpace(content, 12);
-
-        // Native horizontal paging: 16 apps per page, with tappable page indicators.
-        HorizontalScrollView homePager = new HorizontalScrollView(this);
-        homePager.setHorizontalScrollBarEnabled(false);
-        homePager.setFillViewport(true);
-        homePager.setOverScrollMode(View.OVER_SCROLL_NEVER);
-        LinearLayout pagesContainer = horizontal();
-        pagesContainer.setGravity(Gravity.TOP);
-        final int pageWidth = Math.max(1,
-                getResources().getDisplayMetrics().widthPixels - dp(36));
-        final int homeColumns = Math.max(3, Math.min(6, prefs.getInt("home_columns", 4)));
-        final int pageCapacity = homeColumns * 4;
-        final int totalPages = Math.max(1, (allApps.size() + pageCapacity - 1) / pageCapacity);
-        final List<TextView> pageDots = new ArrayList<>();
-        for (int pageIndex = 0; pageIndex < totalPages; pageIndex++) {
-            GridLayout homeGrid = new GridLayout(this);
-            homeGrid.setColumnCount(homeColumns);
-            homeGrid.setUseDefaultMargins(false);
-            int start = pageIndex * pageCapacity;
-            int end = Math.min(start + pageCapacity, allApps.size());
-            for (int i = start; i < end; i++) {
-                GridLayout.LayoutParams tileParams = new GridLayout.LayoutParams();
-                tileParams.width = 0;
-                tileParams.columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f);
-                tileParams.setMargins(dp(2), dp(4), dp(2), dp(4));
-                homeGrid.addView(createAppTile(allApps.get(i), true), tileParams);
-            }
-            pagesContainer.addView(homeGrid, new LinearLayout.LayoutParams(pageWidth, -2));
-        }
-        homePager.addView(pagesContainer);
-        content.addView(homePager, new LinearLayout.LayoutParams(-1, -2));
-
-        if (totalPages > 1) {
-            LinearLayout indicators = horizontal();
-            indicators.setGravity(Gravity.CENTER);
-            indicators.setPadding(0, dp(5), 0, dp(5));
-            for (int i = 0; i < totalPages; i++) {
-                final int targetPage = i;
-                TextView dot = text(i == 0 ? "●" : "○", 10,
-                        i == 0 ? accent : secondaryTextColor(), true);
-                dot.setGravity(Gravity.CENTER);
-                dot.setPadding(dp(5), dp(4), dp(5), dp(4));
-                dot.setOnClickListener(v -> homePager.smoothScrollTo(targetPage * pageWidth, 0));
-                pageDots.add(dot);
-                indicators.addView(dot);
-            }
-            homePager.setOnScrollChangeListener((View v, int scrollX, int scrollY,
-                                                  int oldScrollX, int oldScrollY) -> {
-                int active = Math.max(0, Math.min(totalPages - 1,
-                        Math.round((float) scrollX / pageWidth)));
-                for (int i = 0; i < pageDots.size(); i++) {
-                    pageDots.get(i).setText(i == active ? "●" : "○");
-                    pageDots.get(i).setTextColor(i == active ? accent : secondaryTextColor());
-                }
-            });
-            content.addView(indicators);
-        }
-
-        addSpace(content, 12);
-        TextView library = text("⌕   مكتبة التطبيقات", 14, textColor(), true);
+        // Clean home screen: use folders instead of listing every installed app.
+        addSpace(content, 14);
+        TextView library = text("⌕   فتح مكتبة التطبيقات", 15, textColor(), true);
         library.setGravity(Gravity.CENTER);
-        library.setPadding(dp(16), dp(12), dp(16), dp(12));
+        library.setPadding(dp(16), dp(15), dp(16), dp(15));
         library.setBackground(rounded(cardColor, 20));
         library.setOnClickListener(v -> {
             currentQuery = "";
             showApps();
         });
-        content.addView(library);
+        content.addView(library, new LinearLayout.LayoutParams(-1, -2));
+
+        addSpace(content, 16);
+        addFolderSection(content);
+        addSpace(content, 12);
 
         // Keep the dock visible while the home screen content scrolls.
         scrollView.setClipToPadding(false);
